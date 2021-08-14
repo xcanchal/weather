@@ -1,137 +1,72 @@
-import {
-  useEffect, useState, useCallback, useMemo,
-} from 'react';
+import { useState, useCallback } from 'react';
 import type { NextPage } from 'next';
+import { useRouter } from 'next/router';
 
 import Layout from '../components/layout';
 import HtmlHead from '../components/html-head';
-import WeatherIcon from '../components/weather-icon';
-import useGeolocation from '../hooks/use-geolocation/use-geolocation';
 import http from '../utils/http-client';
-import Language from '../utils/language';
 
 const Summary: NextPage = () => {
-  const [position, setPosition] = useState<GeolocationPosition | undefined>();
-  const geolocation = useGeolocation();
-  const [weather, setWeather] = useState<any>();
+  const [search, setSearch] = useState<string | undefined>();
+  const [showForm, setShowForm] = useState<boolean>(false);
   const [geocodeData, setGeocodeData] = useState<any>();
-  const [lang, setLang] = useState<any>();
+  const router = useRouter();
 
-  useEffect(() => {
-    setLang(Language.determineLanguage());
+  const toggleForm = useCallback(() => {
+    setShowForm(!showForm);
+  }, [showForm]);
+
+  const updateSearch = useCallback((event) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        setSearch(event?.target.value);
+        resolve('');
+      }, 500);
+    });
   }, []);
 
-  const getPosition = useCallback(async () => {
-    const pos = await geolocation?.getCurrentPosition();
-    setPosition(pos);
-  }, [geolocation]);
-
-  useEffect(() => {
-    if (geolocation && !position) {
-      getPosition();
-    }
-  });
-
-  const getWeather = useCallback(async () => {
-    const { latitude, longitude } = position?.coords!;
-    const weather = await http.GET(`/api/weather?lat=${latitude}&lon=${longitude}&lang=${lang}`);
-    console.log('weather', weather);
-    setWeather(weather);
-  }, [position?.coords, lang]);
-
-  const reverseGeocode = useCallback(async () => {
-    const { latitude, longitude } = position?.coords!;
-    const geocode = await http.GET(`/api/geocode?lat=${latitude}&lon=${longitude}`);
-    const [data] = geocode.results;
+  const forwardGeocode = useCallback(async () => {
+    const geocode = await http.GET(`/api/geocode?place=${search}`);
+    const data = geocode.results.filter(
+      ({ components }: any) => components._category === 'place' && (!!components.city || !!components.town)
+    );
+    console.log('fw geocode', geocode);
+    console.log('data', data);
     setGeocodeData(data);
-    console.log('geocoded data', data);
-  }, [position?.coords]);
+  }, [search]);
 
-  useEffect(() => {
-    if (weather && !geocodeData) {
-      reverseGeocode();
-    }
-  }, [weather, geocodeData, reverseGeocode]);
+  const goToWeather = useCallback(({ lat, lng }: any) => {
+    router.push({ pathname: '/weather', query: { lat, lon: lng } }, '/weather');
+  }, [router]);
 
-  useEffect(() => {
-    if (position && !weather) {
-      getWeather();
-    }
-  }, [position, weather, getWeather]);
-
-  const sunrise = useMemo(() => {
-    if (!weather) {
-      return '';
-    }
-    const date = new Date(weather.current.sunrise * 1000);
-    return `${date.getHours()}:${date.getMinutes()}`;
-  }, [weather]);
-
-  const sunset = useMemo(() => {
-    if (!weather) {
-      return '';
-    }
-    const date = new Date(weather.current.sunset * 1000);
-    return `${date.getHours()}:${date.getMinutes()}`;
-  }, [weather]);
+  console.log('search', search);
 
   return (
     <>
-      <HtmlHead title="Weather - summary" />
+      <HtmlHead title="Weather - home" />
       <Layout>
-        {geocodeData ? (
+        {showForm ? (
           <>
-            <div className="location">
-              <h1>{geocodeData?.components?.town}</h1>
-              <p>{geocodeData?.components?.county}, {geocodeData?.components?.country}</p>
-              <p>{new Date().toLocaleDateString(lang)}</p>
-              {/* <h1>{geocodeData?.components?.town}, {geocodeData?.components?.country_code?.toUpperCase()}</h1> */}
-            </div>
-            {weather.current ? (
-              <div className="current">
-                <div className="weather" style={{ background: 'white', margin: '20px 0', borderRadius: '20px', padding: '32px 48px', boxSizing: 'border-box', display: 'flex', maxWidth: '424px' }}>
-                  <WeatherIcon fileName={weather.current.weather[0].icon} />
-                  <div className="text">
-                    <h2>{weather.current.temp}º {/* <small>(sensació: {weather.current.feels_like}º)</small> */}</h2>
-                    <p>{weather.current.weather[0].description}</p>
-                  </div>
-                  <div className="sensors">
-                    <ul>
-                      <li>núvols: {weather.current.clouds}%</li>
-                      <li>humitat: {weather.current.humidity}%</li>
-                      <li>pressió: {weather.current.pressure}hPa</li>
-                    </ul>
-                  </div>
-                </div>
-                <div className="sensors">
-                  <div className="sun">
-                    <p>Sol</p>
-                    <ul>
-                      <li>sortida: {sunrise}h</li>
-                      <li>posta: {sunset}h</li>
-                    </ul>
-                  </div>
-                  <div className="wind">
-                    <p>Vent</p>
-                    <ul>
-                      <li>graus: {weather.current.wind_deg}º</li>
-                      <li>velocitat: {weather.current.wind_speed}m/s</li>
-                    </ul>
-                  </div>
-                </div>
-                <h2>Previsió setmanal</h2>
-                <div className="forecast" style={{ display: 'flex' }}>
-                  {weather.daily.map((day: any) => (
-                    <div className="forecast-day" key={day.dt} style={{ background: 'white', margin: '0 10px', borderRadius: '10px', padding: '12px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <p>{new Date(day.dt * 1000).toLocaleDateString(lang)}</p>
-                      <WeatherIcon fileName={day.weather[0].icon} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : <p>Could not load weather</p>}
+            <input type="text" placeholder="Place name" onChange={updateSearch} />
+            <button onClick={forwardGeocode}>Search</button>
           </>
-        ) : <p>Loading...</p>}
+        ) : (
+          <>
+            <button onClick={toggleForm}>Search place</button>
+            <button>Use my location</button>
+          </>
+        )}
+        {geocodeData && (
+          <ul className="results">
+            {geocodeData.map(({ components, geometry }: any) => (
+              <li key={`${geometry.lat}${geometry.lon}`} onClick={() => goToWeather(geometry)}>
+                <span>{components.city ?? components.town ?? 'Unknown'}</span> -&nbsp;
+                {!!components.county && <span>{components.county}, </span>}
+                <span>{components.country}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </Layout>
     </>
   );

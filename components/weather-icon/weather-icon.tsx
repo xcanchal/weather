@@ -7,14 +7,18 @@ type Props = {
 };
 
 const defaultProps = {
-  size: '2x',
+  size: null,
 };
 
 const host = 'http://openweathermap.org/img/wn';
 
-const WeatherIcon: NextComponentType<Props> = ({ fileName, size }) => (
-  <img src={`${host}/${fileName}@${size}.png`} alt="Weather icon" />
-);
+const WeatherIcon: NextComponentType<Props> = ({ fileName, size }) => {
+  let src = `${host}/${fileName}.png`;
+  if (size) {
+    src = src.replace('.png', `@${size}.png`)
+  }
+  return <img src={src} alt="Weather icon" />;
+}
 
 WeatherIcon.defaultProps = defaultProps;
 

@@ -16,8 +16,13 @@ export default async function handler(
   res: NextApiResponse<Data>
 ) {
   if (req.method === 'GET') {
-    const { lat, lon } = req.query;
-    const decoded = await geocoder.reverse(lat, lon);
-    res.status(200).json(decoded)
+    const { lat, lon, place } = req.query;
+    if (place) {
+      const decoded = await geocoder.forward(place);
+      res.status(200).json(decoded);
+    } else if (lat && lon) {
+      const decoded = await geocoder.reverse(lat, lon);
+      res.status(200).json(decoded);
+    }
   }
 }

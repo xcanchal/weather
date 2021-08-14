@@ -7,6 +7,7 @@ export type Coordinate = any /* string | number */;
 
 export interface IGeocoder {
   reverse(lat: Coordinate, lon: Coordinate): Promise<any>
+  forward(placeName: string): Promise<any>
 }
 
 export default class Geocoder implements IGeocoder {
@@ -22,7 +23,9 @@ export default class Geocoder implements IGeocoder {
     return result;
   }
 
-  /* forward() {
-
-  } */
+  async forward(placeName: string): Promise<any> {
+    const url = `${baseUrl}?key=${apiKey}&q=${placeName}&no_annotations=1`;
+    const result = await this.httpClient.GET(url);
+    return result;
+  }
 }
